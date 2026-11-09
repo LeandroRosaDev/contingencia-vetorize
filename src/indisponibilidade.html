@@ -1,0 +1,937 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#0070d6">
+  <meta name="robots" content="noindex, nofollow">
+  <!-- Tenta reconectar sozinho a cada 60s (mesmo valor do Retry-After do Worker). -->
+  <meta http-equiv="refresh" content="60">
+  <title>Manutenção | Vetorize</title>
+  <style>
+    /* Paleta extraída do sistema Vetorize (--primary: oklch(0.55 0.2 240) ≈ #0070d6, fundo branco, fonte Geist) */
+    :root {
+      color-scheme: light;
+      --primary: #0070d6;
+      --primary-dark: #005bb0;
+      --primary-soft: #eaf4ff;
+      --ceu: #0ea5e9;
+      --verde: #58a52b;
+      --bg: #ffffff;
+      --text: #0f172a;
+      --muted: #737373;
+      --border: #e5e5e5;
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; }
+    html { min-height: 100%; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(14px, 3vh, 28px) 16px;
+      overflow-x: hidden;
+      background-color: var(--bg);
+      /* Grade azul da landing do Vetorize */
+      background-image:
+        linear-gradient(#0070d60f 1px, transparent 1px),
+        linear-gradient(90deg, #0070d60f 1px, transparent 1px);
+      background-size: 60px 60px;
+      color: var(--text);
+      font: 16px/1.6 "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ---------- Fundo: manchas azuis que flutuam devagar ---------- */
+    .blobs { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+    .blobs span {
+      position: absolute;
+      width: 46vmax; height: 46vmax;
+      border-radius: 50%;
+      filter: blur(40px);
+      opacity: .7;
+      animation: deriva 22s ease-in-out infinite alternate;
+    }
+    .blobs span:nth-child(1) { top: -18vmax; left: -14vmax; background: radial-gradient(circle, #0070d61f, transparent 65%); }
+    .blobs span:nth-child(2) { bottom: -20vmax; right: -16vmax; background: radial-gradient(circle, #38bdf824, transparent 65%); animation-duration: 26s; animation-direction: alternate-reverse; }
+    .blobs span:nth-child(3) { top: 30%; left: 55%; width: 28vmax; height: 28vmax; background: radial-gradient(circle, #7cc24210, transparent 65%); animation-duration: 18s; }
+    @keyframes deriva {
+      0%   { transform: translate(0, 0) scale(1); }
+      50%  { transform: translate(4vmax, 3vmax) scale(1.08); }
+      100% { transform: translate(-3vmax, 5vmax) scale(.95); }
+    }
+
+    .container { width: min(100%, 560px); text-align: center; }
+
+    /* ---------- Marca ---------- */
+    .marca {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 6px;
+    }
+    .marca img {
+      display: block;
+      width: auto; height: 44px;
+      animation: surgir 1.2s cubic-bezier(.3, .7, .3, 1) both;
+    }
+    /* O logotipo é "revelado" da esquerda para a direita, como um traço vetorial */
+    @keyframes surgir {
+      from { clip-path: inset(0 100% 0 0); opacity: .3; }
+      to   { clip-path: inset(0 0 0 0); opacity: 1; }
+    }
+    .marca-slogan { display: block; font-size: 11px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+
+    /*
+      ---------- Palco: dedetização de uma casa ----------
+      Um único SVG (viewBox 400 × 288) escala inteiro em qualquer tela.
+
+      Ciclo de 12s, sincronizado com o checklist e com a barra "Área tratada":
+        0–12%   técnico entra com o pulverizador costal; placa de isolamento aparece
+        16–52%  lança pulveriza a névoa; nível do tanque baixa
+        30–50%  baratas viram de barriga para cima, formigas somem, mosquito cai
+        54–68%  névoa se dissipa; selo "Ambiente protegido"
+        68–90%  certificado com carimbo; técnico sai
+        92–100% as pragas "voltam" para recomeçar o ciclo
+    */
+    /*
+      A ilustração encolhe conforme a altura da janela para a página
+      inteira caber na tela sem rolagem (--resto ≈ altura do restante do conteúdo).
+    */
+    .palco {
+      --resto: 620px;
+      position: relative;
+      width: min(100%, 440px, max(170px, calc((100vh - var(--resto)) * 1.389)));
+      width: min(100%, 440px, max(170px, calc((100dvh - var(--resto)) * 1.389)));
+      margin: 4px auto 0;
+      -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+              mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+    }
+    .palco svg { display: block; width: 100%; height: auto; }
+
+    /* Rotações em torno da origem local de cada grupo (posicionado por transform="translate(...)") */
+    .local { transform-box: view-box; transform-origin: 0 0; }
+
+    .nuvem { animation: nuvem 9s ease-in-out infinite alternate; }
+    @keyframes nuvem { from { transform: translateX(-10px); } to { transform: translateX(26px); } }
+    .luz { animation: luz 4s ease-in-out infinite alternate; }
+    @keyframes luz { from { opacity: .45; } to { opacity: .8; } }
+
+    /* ----- Técnico: entra, pulveriza e sai ----- */
+    .tecnico { animation: tecnico 12s infinite; }
+    @keyframes tecnico {
+      0%        { transform: translateX(-240px); animation-timing-function: linear; }
+      12%, 76%  { transform: translateX(0); animation-timing-function: linear; }
+      90%, 100% { transform: translateX(340px); }
+    }
+    /* Passadas só enquanto ele caminha */
+    .perna-a { animation: passo-a 12s infinite; }
+    .perna-b { animation: passo-b 12s infinite; }
+    @keyframes passo-a {
+      0%, 4%, 8%       { transform: rotate(16deg); }
+      2%, 6%, 10%      { transform: rotate(-16deg); }
+      12%, 76%         { transform: rotate(0); }
+      78%, 82%, 86%    { transform: rotate(16deg); }
+      80%, 84%, 88%    { transform: rotate(-16deg); }
+      90%, 100%        { transform: rotate(0); }
+    }
+    @keyframes passo-b {
+      0%, 4%, 8%       { transform: rotate(-16deg); }
+      2%, 6%, 10%      { transform: rotate(16deg); }
+      12%, 76%         { transform: rotate(0); }
+      78%, 82%, 86%    { transform: rotate(-16deg); }
+      80%, 84%, 88%    { transform: rotate(16deg); }
+      90%, 100%        { transform: rotate(0); }
+    }
+    .corpo { animation: balanco 12s infinite; }
+    @keyframes balanco {
+      0%, 4%, 8%, 12%, 76%, 80%, 84%, 88%, 90%, 100% { transform: translateY(0); }
+      2%, 6%, 10%, 78%, 82%, 86% { transform: translateY(-2px); }
+    }
+    /* A lança varre o ambiente durante a aplicação */
+    .lanca { animation: varrer 12s ease-in-out infinite; }
+    @keyframes varrer {
+      0%, 15%   { transform: rotate(8deg); }
+      19%       { transform: rotate(-14deg); }
+      24%       { transform: rotate(10deg); }
+      29%       { transform: rotate(-16deg); }
+      34%       { transform: rotate(12deg); }
+      39%       { transform: rotate(-8deg); }
+      44%       { transform: rotate(14deg); }
+      49%       { transform: rotate(-4deg); }
+      53%, 100% { transform: rotate(8deg); }
+    }
+    /* Nível de produto no visor do tanque */
+    .nivel { transform-box: fill-box; transform-origin: 50% 100%; animation: nivel 12s infinite; }
+    @keyframes nivel {
+      0%, 16%   { transform: scaleY(1); }
+      52%, 96%  { transform: scaleY(.45); }
+      100%      { transform: scaleY(1); }
+    }
+
+    /* ----- Névoa saindo do bico ----- */
+    .jato { opacity: 0; animation: janela-jato 12s infinite; }
+    @keyframes janela-jato {
+      0%, 16%   { opacity: 0; }
+      18%, 50%  { opacity: 1; }
+      53%, 100% { opacity: 0; }
+    }
+    .gota {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: gota 1.1s linear infinite;
+    }
+    @keyframes gota {
+      0%   { transform: translate(0, 0) scale(.4); opacity: .95; }
+      100% { transform: translate(var(--dx), var(--dy)) scale(3.2); opacity: 0; }
+    }
+    .g1 { --dx: 62px; --dy: 14px; }
+    .g2 { --dx: 74px; --dy: 30px; animation-delay: -.15s; }
+    .g3 { --dx: 52px; --dy: 38px; animation-delay: -.3s; }
+    .g4 { --dx: 84px; --dy: 20px; animation-delay: -.45s; }
+    .g5 { --dx: 46px; --dy: 4px;  animation-delay: -.6s; }
+    .g6 { --dx: 68px; --dy: -6px; animation-delay: -.75s; }
+    .g7 { --dx: 78px; --dy: 44px; animation-delay: -.9s; }
+    .g8 { --dx: 58px; --dy: 24px; animation-delay: -1s; }
+
+    /* Neblina que cobre o chão e os cantos */
+    .neblina { opacity: 0; animation: neblina 12s infinite; }
+    @keyframes neblina {
+      0%, 20%   { opacity: 0; transform: translateX(-16px); }
+      34%, 48%  { opacity: .95; transform: translateX(0); }
+      60%, 100% { opacity: 0; transform: translateX(14px); }
+    }
+    .neblina ellipse { animation: respira 3s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: center; }
+    .neblina ellipse:nth-child(2) { animation-delay: -1s; }
+    .neblina ellipse:nth-child(3) { animation-delay: -2s; }
+    @keyframes respira { from { transform: scale(.92); } to { transform: scale(1.08); } }
+
+    /* ----- Placa de isolamento ----- */
+    .placa { transform-box: fill-box; transform-origin: 50% 100%; animation: placa 12s infinite; }
+    @keyframes placa {
+      0%, 9%    { opacity: 0; transform: scale(.3); }
+      12%       { opacity: 1; transform: scale(1.08); }
+      13.5%, 76% { opacity: 1; transform: scale(1); }
+      79%, 100% { opacity: 0; transform: scale(.6); }
+    }
+
+    /* ----- Pragas ----- */
+    /* Barata do chão: anda, para, vira de barriga para cima e some */
+    .anda-a { animation: anda-a 12s infinite; }
+    @keyframes anda-a {
+      0%       { transform: translateX(0); }
+      7%       { transform: translateX(-26px); }
+      14%      { transform: translateX(-4px); }
+      21%      { transform: translateX(-30px); }
+      28%, 48% { transform: translateX(-12px); }
+      50%, 100% { transform: translateX(0); }
+    }
+    .morte-a { animation: morte-a 12s infinite; }
+    @keyframes morte-a {
+      0%, 30%   { opacity: 1; transform: scaleY(1); }
+      33%, 44%  { opacity: 1; transform: scaleY(-1); }
+      49%, 93%  { opacity: 0; transform: scaleY(-1); }
+      97%, 100% { opacity: 1; transform: scaleY(1); }
+    }
+    /* Barata da parede: sobe e desce, cai no chão e vira */
+    .anda-b { animation: anda-b 12s infinite; }
+    @keyframes anda-b {
+      0%       { transform: translateX(0); }
+      9%       { transform: translateX(22px); }
+      18%      { transform: translateX(6px); }
+      27%, 50% { transform: translateX(18px); }
+      52%, 100% { transform: translateX(0); }
+    }
+    .morte-b { animation: morte-b 12s infinite; }
+    @keyframes morte-b {
+      0%, 34%   { opacity: 1; transform: translateY(0) rotate(0) scaleY(1); animation-timing-function: ease-in; }
+      38%, 45%  { opacity: 1; transform: translateY(26px) rotate(90deg) scaleY(-1); }
+      50%, 93%  { opacity: 0; transform: translateY(26px) rotate(90deg) scaleY(-1); }
+      97%, 100% { opacity: 1; transform: translateY(0) rotate(0) scaleY(1); }
+    }
+    /* Trilha de formigas indo para o ralo */
+    .formiga { animation: formiga 5s linear infinite; }
+    .formiga:nth-child(2) { animation-delay: -1s; }
+    .formiga:nth-child(3) { animation-delay: -2s; }
+    .formiga:nth-child(4) { animation-delay: -3s; }
+    .formiga:nth-child(5) { animation-delay: -4s; }
+    @keyframes formiga {
+      0%   { transform: translateX(0); opacity: 0; }
+      10%, 85% { opacity: 1; }
+      100% { transform: translateX(-104px); opacity: 0; }
+    }
+    .formiga .corpo-f { animation: rebola .3s steps(2) infinite; }
+    @keyframes rebola { 50% { transform: translateY(-.6px); } }
+    .formigas { animation: formigas 12s infinite; }
+    @keyframes formigas {
+      0%, 32%   { opacity: 1; }
+      44%, 93%  { opacity: 0; }
+      98%, 100% { opacity: 1; }
+    }
+    /* Mosquito em zigue-zague que despenca */
+    .voo { animation: voo 1.6s ease-in-out infinite; }
+    @keyframes voo {
+      0%, 100% { transform: translate(0, 0); }
+      25%      { transform: translate(10px, -6px); }
+      50%      { transform: translate(-4px, 4px); }
+      75%      { transform: translate(-12px, -4px); }
+    }
+    .asa { animation: asa .08s linear infinite alternate; }
+    @keyframes asa { to { opacity: .35; } }
+    .morte-m { animation: morte-m 12s infinite; }
+    @keyframes morte-m {
+      0%, 38%   { opacity: 1; transform: translateY(0) rotate(0); animation-timing-function: ease-in; }
+      44%, 47%  { opacity: 1; transform: translateY(122px) rotate(160deg); }
+      51%, 93%  { opacity: 0; transform: translateY(122px) rotate(160deg); }
+      97%, 100% { opacity: 1; transform: translateY(0) rotate(0); }
+    }
+
+    /* ----- Resultado: selo, brilhos e certificado ----- */
+    .escudo { transform-box: fill-box; transform-origin: 50% 60%; opacity: 0; animation: escudo 12s infinite; }
+    @keyframes escudo {
+      0%, 54%   { opacity: 0; transform: translateY(8px) scale(.5); }
+      57%       { opacity: 1; transform: translateY(0) scale(1.1); }
+      59%, 66%  { opacity: 1; transform: translateY(0) scale(1); }
+      69%, 100% { opacity: 0; transform: translateY(-8px) scale(1); }
+    }
+    .brilho { transform-box: fill-box; transform-origin: center; opacity: 0; animation: brilho 12s infinite; }
+    .brilho:nth-of-type(2) { animation-delay: .25s; }
+    .brilho:nth-of-type(3) { animation-delay: .5s; }
+    .brilho:nth-of-type(4) { animation-delay: .75s; }
+    @keyframes brilho {
+      0%, 54%   { opacity: 0; transform: scale(0) rotate(0); }
+      58%       { opacity: 1; transform: scale(1.2) rotate(45deg); }
+      62%       { opacity: .6; transform: scale(.7) rotate(90deg); }
+      66%       { opacity: 1; transform: scale(1) rotate(135deg); }
+      70%, 100% { opacity: 0; transform: scale(0) rotate(180deg); }
+    }
+    .certificado { opacity: 0; animation: certificado 12s infinite; }
+    @keyframes certificado {
+      0%, 68%   { opacity: 0; transform: translateY(18px); }
+      72%, 90%  { opacity: 1; transform: translateY(0); }
+      94%, 100% { opacity: 0; transform: translateY(-6px); }
+    }
+    .carimbo { transform-box: fill-box; transform-origin: center; opacity: 0; animation: carimbo 12s infinite; }
+    @keyframes carimbo {
+      0%, 75%   { opacity: 0; transform: scale(2.2) rotate(-20deg); }
+      78%       { opacity: 1; transform: scale(.9) rotate(0); }
+      79.5%, 90% { opacity: 1; transform: scale(1) rotate(0); }
+      94%, 100% { opacity: 0; transform: scale(1); }
+    }
+
+    /* ---------- Texto ---------- */
+    main { margin-top: clamp(8px, 2vh, 18px); }
+    .selo {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 13px;
+      border: 1px solid #0070d633;
+      border-radius: 999px;
+      background: var(--primary-soft);
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 650;
+    }
+    .selo::before {
+      content: '';
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 0 0 #0070d666;
+      animation: pulso 1.8s ease-out infinite;
+    }
+    @keyframes pulso { to { box-shadow: 0 0 0 7px #0070d600; } }
+    h1 {
+      margin: 14px 0 12px;
+      font-size: clamp(26px, 6vw, 36px);
+      line-height: 1.15;
+      letter-spacing: -.035em;
+      text-wrap: balance;
+    }
+    h1 span { color: var(--primary); }
+    .descricao {
+      margin: 0 auto;
+      max-width: 450px;
+      color: var(--muted);
+      font-size: 15px;
+      text-wrap: pretty;
+    }
+
+    /* ---------- Checklist animado ---------- */
+    .tarefas {
+      margin: clamp(14px, 2.6vh, 24px) auto 0;
+      padding: 14px 18px 12px;
+      max-width: 460px;
+      text-align: left;
+      background: #ffffffd9;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 12px 32px -18px #0f172a40;
+      backdrop-filter: blur(6px);
+    }
+    /* Etapas em grade 2 × 2 para economizar altura */
+    .tarefas ul {
+      list-style: none;
+      margin: 0 0 10px;
+      padding: 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px 14px;
+    }
+    .tarefas li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 5px 0;
+      font-size: 14px;
+      line-height: 1.3;
+      color: var(--text);
+    }
+    .ico { position: relative; flex: none; width: 20px; height: 20px; }
+    .ico > * { position: absolute; inset: 0; opacity: 0; }
+    .ico .pend { inset: 6px; border-radius: 50%; background: #d4d4d8; }
+    .ico .exec {
+      border-radius: 50%;
+      border: 2.5px solid #0070d62e;
+      border-top-color: var(--primary);
+    }
+    .ico .ok {
+      border-radius: 50%;
+      background: var(--verde);
+      display: grid;
+      place-items: center;
+    }
+    .ico .ok svg { width: 12px; height: 12px; }
+    @keyframes girar { to { transform: rotate(360deg); } }
+
+    /*
+      Janelas do ciclo de 12s:
+      1 = 0–18% | 2 = 18–40% | 3 = 40–66% | 4 = 66–88% | tudo concluído até 100%
+    */
+    .t1 .pend { animation: t1p 12s infinite; }
+    .t1 .exec { animation: t1e 12s infinite, girar .8s linear infinite; }
+    .t1 .ok   { animation: t1o 12s infinite; }
+    .t2 .pend { animation: t2p 12s infinite; }
+    .t2 .exec { animation: t2e 12s infinite, girar .8s linear infinite; }
+    .t2 .ok   { animation: t2o 12s infinite; }
+    .t3 .pend { animation: t3p 12s infinite; }
+    .t3 .exec { animation: t3e 12s infinite, girar .8s linear infinite; }
+    .t3 .ok   { animation: t3o 12s infinite; }
+    .t4 .pend { animation: t4p 12s infinite; }
+    .t4 .exec { animation: t4e 12s infinite, girar .8s linear infinite; }
+    .t4 .ok   { animation: t4o 12s infinite; }
+    .t2 .rot { animation: t2r 12s infinite; }
+    .t3 .rot { animation: t3r 12s infinite; }
+    .t4 .rot { animation: t4r 12s infinite; }
+
+    @keyframes t1p { 0%, 100% { opacity: 0; } }
+    @keyframes t1e { 0%, 17.6% { opacity: 1; } 18%, 100% { opacity: 0; } }
+    @keyframes t1o { 0%, 17.6% { opacity: 0; transform: scale(.4); } 18.7% { opacity: 1; transform: scale(1.15); } 19.7%, 99% { opacity: 1; transform: scale(1); } 100% { opacity: 0; } }
+
+    @keyframes t2p { 0%, 17.6% { opacity: 1; } 18%, 99% { opacity: 0; } 100% { opacity: 1; } }
+    @keyframes t2e { 0%, 17.6% { opacity: 0; } 18%, 39.6% { opacity: 1; } 40%, 100% { opacity: 0; } }
+    @keyframes t2o { 0%, 39.6% { opacity: 0; transform: scale(.4); } 40.7% { opacity: 1; transform: scale(1.15); } 41.7%, 99% { opacity: 1; transform: scale(1); } 100% { opacity: 0; } }
+    @keyframes t2r { 0%, 17.6% { color: var(--muted); } 18%, 99% { color: var(--text); } 100% { color: var(--muted); } }
+
+    @keyframes t3p { 0%, 39.6% { opacity: 1; } 40%, 99% { opacity: 0; } 100% { opacity: 1; } }
+    @keyframes t3e { 0%, 39.6% { opacity: 0; } 40%, 65.6% { opacity: 1; } 66%, 100% { opacity: 0; } }
+    @keyframes t3o { 0%, 65.6% { opacity: 0; transform: scale(.4); } 66.7% { opacity: 1; transform: scale(1.15); } 67.7%, 99% { opacity: 1; transform: scale(1); } 100% { opacity: 0; } }
+    @keyframes t3r { 0%, 39.6% { color: var(--muted); } 40%, 99% { color: var(--text); } 100% { color: var(--muted); } }
+
+    @keyframes t4p { 0%, 65.6% { opacity: 1; } 66%, 99% { opacity: 0; } 100% { opacity: 1; } }
+    @keyframes t4e { 0%, 65.6% { opacity: 0; } 66%, 87.6% { opacity: 1; } 88%, 100% { opacity: 0; } }
+    @keyframes t4o { 0%, 87.6% { opacity: 0; transform: scale(.4); } 88.7% { opacity: 1; transform: scale(1.15); } 89.7%, 99% { opacity: 1; transform: scale(1); } 100% { opacity: 0; } }
+    @keyframes t4r { 0%, 65.6% { color: var(--muted); } 66%, 99% { color: var(--text); } 100% { color: var(--muted); } }
+
+    /* ---------- Área tratada (barra de progresso) ---------- */
+    .area { padding-top: 12px; border-top: 1px dashed var(--border); }
+    .area-topo {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .area-topo strong { color: var(--text); font-weight: 650; }
+    @property --pct { syntax: '<integer>'; inherits: false; initial-value: 0; }
+    .pct { color: var(--primary); font-weight: 750; font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .pct::before {
+      counter-reset: pct var(--pct);
+      content: counter(pct) "%";
+      animation: pct 12s infinite;
+    }
+    @keyframes pct {
+      0%   { --pct: 0; }
+      18%  { --pct: 10; }
+      40%  { --pct: 45; }
+      66%  { --pct: 80; }
+      88%, 99% { --pct: 100; }
+      100% { --pct: 0; }
+    }
+    .trilho {
+      position: relative;
+      height: 12px;
+      border-radius: 999px;
+      background: var(--primary-soft);
+      border: 1px solid #0070d626;
+      overflow: hidden;
+    }
+    /* Faixa de névoa: azul do sistema com gotículas e um leve brilho correndo */
+    .enchimento {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background-color: var(--primary);
+      background-image:
+        radial-gradient(#ffffff59 1px, transparent 1.6px),
+        linear-gradient(90deg, #0070d6, #0ea5e9 80%, #7cc242);
+      background-size: 6px 6px, 100% 100%;
+      transform-origin: 0 50%;
+      transform: scaleX(.8);
+      animation: tratar 12s infinite;
+    }
+    @keyframes tratar {
+      0%   { transform: scaleX(0); }
+      18%  { transform: scaleX(.1); }
+      40%  { transform: scaleX(.45); }
+      66%  { transform: scaleX(.8); }
+      88%, 99% { transform: scaleX(1); }
+      100% { transform: scaleX(0); }
+    }
+    .marcos { position: relative; height: 18px; margin-top: 6px; font-size: 11px; color: var(--muted); }
+    .marcos span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+    .marcos span::before {
+      content: '';
+      position: absolute;
+      left: 50%; top: -9px;
+      width: 1px; height: 6px;
+      background: #0070d659;
+    }
+    .marcos .m1 { left: 45%; }
+    .marcos .m2 { left: 80%; }
+    .marcos .m3 { left: auto; right: 0; transform: none; }
+    .marcos .m3::before { left: auto; right: 0; }
+
+    /* ---------- Ações ---------- */
+    .acoes { margin-top: clamp(14px, 2.6vh, 24px); }
+    .tentar {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      min-height: 46px;
+      padding: 11px 24px;
+      border-radius: var(--radius);
+      background: var(--primary);
+      color: #fff;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 650;
+      box-shadow: 0 10px 24px -10px #0070d6b3;
+      transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+    }
+    .tentar svg { width: 16px; height: 16px; transition: transform .4s ease; }
+    .tentar:hover { background: var(--primary-dark); transform: translateY(-2px); box-shadow: 0 14px 28px -10px #0070d6cc; }
+    .tentar:hover svg { transform: rotate(180deg); }
+    .tentar:focus-visible { outline: 3px solid #0070d666; outline-offset: 3px; }
+    .nota { margin: 10px 0 0; color: var(--muted); font-size: 12px; }
+    footer { margin-top: 20px; color: #a1a1aa; font-size: 12px; }
+    footer strong { color: var(--primary); font-weight: 650; }
+
+    @media (max-width: 420px) {
+      .tarefas { padding: 12px 14px 10px; }
+      .tarefas ul { column-gap: 10px; }
+      .tarefas li { font-size: 13px; }
+      .descricao { font-size: 14px; }
+      .marca img { height: 38px; }
+      /* Evita que "Ralos" encoste em "Perímetro" em telas estreitas */
+      .marcos { font-size: 10px; }
+      .marcos .m2 { left: 72%; }
+    }
+
+    /* Telas largas (notebooks e monitores): ilustração à esquerda, texto à direita */
+    @media (min-width: 900px) {
+      .container {
+        width: min(100%, 1080px);
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 460px);
+        grid-template-areas: "vitrine main" "vitrine rodape";
+        column-gap: clamp(32px, 5vw, 72px);
+        align-items: center;
+        text-align: left;
+      }
+      .vitrine { grid-area: vitrine; text-align: center; }
+      main { grid-area: main; margin-top: 0; }
+      footer { grid-area: rodape; }
+      .descricao { margin: 0; }
+      .tarefas { margin-left: 0; }
+      .palco {
+        width: min(100%, 540px, calc((100vh - 150px) * 1.389));
+        width: min(100%, 540px, calc((100dvh - 150px) * 1.389));
+      }
+    }
+
+    /* Janelas baixas: tira o rodapé (a marca já aparece no topo) */
+    @media (max-height: 900px) {
+      footer { display: none; }
+    }
+
+    /* Celulares: tudo mais compacto para caber sem rolagem */
+    @media (max-width: 600px) and (max-height: 860px) {
+      body { padding-top: 10px; padding-bottom: 10px; }
+      .palco { --resto: 560px; }
+      .marca { gap: 2px; margin-bottom: 0; }
+      .marca img { height: 34px; }
+      .marca-slogan { font-size: 10px; }
+      .selo { padding: 3px 11px; }
+      h1 { font-size: 24px; margin: 8px 0 6px; }
+      .descricao { font-size: 14px; line-height: 1.5; }
+      .tarefas li { padding: 3px 0; }
+      .tarefas ul { margin-bottom: 8px; }
+      .area { padding-top: 8px; }
+      .area-topo { margin-bottom: 6px; }
+      .marcos { height: 15px; margin-top: 4px; }
+      .tentar { min-height: 42px; padding: 9px 22px; }
+      /* A página continua recarregando sozinha; só o aviso sai */
+      .nota { display: none; }
+    }
+
+    /* Respeita quem prefere menos movimento: cena parada com o ambiente já protegido */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .escudo, .brilho { opacity: 1; }
+      .pragas { display: none; }
+      .t1 .ok, .t2 .ok, .t3 .exec, .t4 .pend { opacity: 1; }
+      .pct::before { content: "80%"; }
+    }
+  </style>
+</head>
+<body>
+  <div class="blobs" aria-hidden="true"><span></span><span></span><span></span></div>
+
+  <div class="container">
+    <div class="vitrine">
+    <div class="marca">
+      <img src="data:image/png;base64,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" width="360" height="98" alt="Vetorize">
+      <span class="marca-slogan">Gestão para dedetização e higienização</span>
+    </div>
+
+    <div class="palco" aria-hidden="true">
+      <svg viewBox="0 0 400 288" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="zebrado" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width="8" height="8" fill="#fff"/>
+            <rect width="4" height="8" fill="#0070d6"/>
+          </pattern>
+          <linearGradient id="vidro" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#bae6fd"/>
+            <stop offset="1" stop-color="#eff8ff"/>
+          </linearGradient>
+          <linearGradient id="marcaV" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#1e7fc4"/>
+            <stop offset="1" stop-color="#7cc242"/>
+          </linearGradient>
+          <radialGradient id="nevoa">
+            <stop offset="0" stop-color="#7dd3fc" stop-opacity=".75"/>
+            <stop offset=".6" stop-color="#bae6fd" stop-opacity=".45"/>
+            <stop offset="1" stop-color="#e0f2fe" stop-opacity="0"/>
+          </radialGradient>
+          <radialGradient id="facho" cx=".5" cy="0" r="1">
+            <stop offset="0" stop-color="#fde68a" stop-opacity=".5"/>
+            <stop offset="1" stop-color="#fde68a" stop-opacity="0"/>
+          </radialGradient>
+          <clipPath id="janela-clip"><rect x="38" y="76" width="64" height="54" rx="2"/></clipPath>
+
+          <!-- Barata (centrada na origem, cabeça para a direita) -->
+          <g id="barata">
+            <g stroke="#3f1d0b" stroke-width=".9" stroke-linecap="round" fill="none">
+              <path d="M-3 -3 l-3 -4 M1 -3 l1 -5 M4 -3 l3 -4 M-3 3 l-3 4 M1 3 l1 5 M4 3 l3 4"/>
+              <path d="M9 -1 q6 -6 10 -5 M9 1 q6 6 10 5"/>
+            </g>
+            <ellipse rx="7.5" ry="4.2" fill="#7c3a14"/>
+            <path d="M-7 0 h13" stroke="#4a2410" stroke-width=".8"/>
+            <ellipse cx="7.5" rx="2.6" ry="2.4" fill="#4a2410"/>
+            <ellipse cx="-1" cy="-1.6" rx="4" ry="1.1" fill="#fff" opacity=".25"/>
+          </g>
+          <!-- Formiga (cabeça para a esquerda) -->
+          <g id="formiga">
+            <g stroke="#1f2937" stroke-width=".6" stroke-linecap="round">
+              <path d="M-1 0 l-1.5 -2.5 M-1 0 l-1.5 2.5 M0 0 l0 -3 M0 0 l0 3 M1 0 l1.5 -2.5 M1 0 l1.5 2.5"/>
+              <path d="M-3.8 -.5 l-1.8 -2"/>
+            </g>
+            <circle cx="-3.4" r="1.3" fill="#1f2937"/>
+            <circle r="1" fill="#1f2937"/>
+            <ellipse cx="2.6" rx="2" ry="1.5" fill="#1f2937"/>
+          </g>
+          <!-- Marca "V" do Vetorize -->
+          <path id="v" d="M-6 -6 C -3 -2, -1 4, 0 6 L 6 -6" fill="none" stroke="url(#marcaV)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </defs>
+
+        <!-- ===== Casa em corte ===== -->
+        <!-- Chaminé e telhado -->
+        <rect x="300" y="8" width="18" height="30" fill="#005bb0"/>
+        <rect x="297" y="5" width="24" height="6" rx="1.5" fill="#004a91"/>
+        <path d="M4 46 L200 6 L396 46 Z" fill="#0070d6"/>
+        <path d="M40 39 L200 7 L360 39 M76 32 L200 8 L324 32 M112 25 L200 8 L288 25" stroke="#ffffff" stroke-opacity=".18" stroke-width="2" fill="none"/>
+        <path d="M4 46 L200 6 L396 46" stroke="#004a91" stroke-width="3" fill="none" stroke-linejoin="round"/>
+
+        <!-- Parede interna -->
+        <rect x="16" y="46" width="368" height="176" fill="#f5faff"/>
+        <rect x="16" y="46" width="368" height="176" fill="none" stroke="#0070d6" stroke-opacity=".35" stroke-width="1.5"/>
+        <rect x="16" y="214" width="246" height="8" fill="#dbeafe"/>
+
+        <!-- Luminária -->
+        <line x1="150" y1="46" x2="150" y2="58" stroke="#64748b" stroke-width="1.2"/>
+        <path class="luz" d="M138 66 L162 66 L196 150 L104 150 Z" fill="url(#facho)"/>
+        <path d="M140 66 L144 58 L156 58 L160 66 Z" fill="#0f172a"/>
+        <circle cx="150" cy="67" r="3" fill="#fde68a"/>
+
+        <!-- Janela com céu -->
+        <rect x="34" y="72" width="72" height="62" rx="4" fill="#fff" stroke="#0070d6" stroke-width="2"/>
+        <rect x="38" y="76" width="64" height="54" rx="2" fill="url(#vidro)"/>
+        <g clip-path="url(#janela-clip)">
+          <circle cx="90" cy="88" r="7" fill="#fde68a"/>
+          <g class="nuvem">
+            <path d="M44 104 a6 6 0 0 1 11 -3 a8 8 0 0 1 15 3 a5 5 0 0 1 0 9 h-26 a5 5 0 0 1 0 -9z" fill="#fff"/>
+          </g>
+        </g>
+        <path d="M70 76 V130 M38 103 H102" stroke="#fff" stroke-width="3"/>
+        <rect x="30" y="132" width="80" height="5" rx="2" fill="#0070d6"/>
+
+        <!-- Armário superior -->
+        <rect x="272" y="62" width="90" height="42" rx="3" fill="#fff" stroke="#94a3b8" stroke-width="1.5"/>
+        <line x1="317" y1="62" x2="317" y2="104" stroke="#94a3b8" stroke-width="1.5"/>
+        <path d="M310 90 v6 M324 90 v6" stroke="#64748b" stroke-width="2" stroke-linecap="round"/>
+
+        <!-- Bancada, pia e armário inferior -->
+        <path d="M304 146 v-14 q0 -6 8 -6 h8" fill="none" stroke="#64748b" stroke-width="2.5" stroke-linecap="round"/>
+        <rect x="256" y="146" width="122" height="8" rx="2" fill="#0070d6"/>
+        <rect x="262" y="154" width="110" height="68" fill="#fff" stroke="#94a3b8" stroke-width="1.5"/>
+        <path d="M299 154 V222 M336 154 V222" stroke="#94a3b8" stroke-width="1.5"/>
+        <path d="M292 172 v8 M306 172 v8 M343 172 v8" stroke="#64748b" stroke-width="2" stroke-linecap="round"/>
+
+        <!-- Piso -->
+        <rect x="0" y="222" width="400" height="44" fill="#e6f2fc"/>
+        <path d="M0 222 H400" stroke="#0070d6" stroke-opacity=".45" stroke-width="2"/>
+        <path d="M0 242 H400 M40 222 V266 M100 222 V266 M160 222 V266 M220 222 V266 M280 222 V266 M340 222 V266" stroke="#0070d6" stroke-opacity=".1" stroke-width="1"/>
+        <!-- Ralo -->
+        <ellipse cx="236" cy="252" rx="12" ry="4" fill="#cbd5e1" stroke="#94a3b8"/>
+        <path d="M228 252 h16 M230 250 h12 M230 254 h12" stroke="#64748b" stroke-width=".8"/>
+
+        <!-- ===== Pragas ===== -->
+        <g class="pragas">
+          <!-- Mosquito -->
+          <g transform="translate(232 104)">
+            <g class="morte-m local">
+              <g class="voo">
+                <ellipse class="asa" cx="-2" cy="-4" rx="4" ry="1.8" fill="#bae6fd" stroke="#64748b" stroke-width=".4" transform="rotate(-25)"/>
+                <ellipse class="asa" cx="2" cy="-4" rx="4" ry="1.8" fill="#bae6fd" stroke="#64748b" stroke-width=".4" transform="rotate(25)"/>
+                <path d="M-6 1 L5 -1" stroke="#334155" stroke-width="2" stroke-linecap="round"/>
+                <path d="M5 -1 l5 1.5 M-2 0 l-3 5 M0 0 l1 5 M2 0 l4 4" stroke="#334155" stroke-width=".6" stroke-linecap="round"/>
+              </g>
+            </g>
+          </g>
+          <!-- Barata na parede (subindo) -->
+          <g transform="translate(244 196)">
+            <g class="morte-b local">
+              <g transform="rotate(-90)">
+                <g class="anda-b"><use href="#barata"/></g>
+              </g>
+            </g>
+          </g>
+          <!-- Barata no chão -->
+          <g transform="translate(302 234)">
+            <g class="morte-a local">
+              <g class="anda-a" transform="scale(-1 1)"><use href="#barata"/></g>
+            </g>
+          </g>
+          <!-- Trilha de formigas indo para o ralo -->
+          <g class="formigas" transform="translate(358 252)">
+            <g class="formiga"><g class="corpo-f"><use href="#formiga"/></g></g>
+            <g class="formiga"><g class="corpo-f"><use href="#formiga"/></g></g>
+            <g class="formiga"><g class="corpo-f"><use href="#formiga"/></g></g>
+            <g class="formiga"><g class="corpo-f"><use href="#formiga"/></g></g>
+            <g class="formiga"><g class="corpo-f"><use href="#formiga"/></g></g>
+          </g>
+        </g>
+
+        <!-- Neblina de produto no chão e nos cantos -->
+        <g class="neblina">
+          <ellipse cx="230" cy="214" rx="70" ry="20" fill="url(#nevoa)"/>
+          <ellipse cx="300" cy="230" rx="64" ry="16" fill="url(#nevoa)"/>
+          <ellipse cx="250" cy="176" rx="40" ry="24" fill="url(#nevoa)"/>
+        </g>
+
+        <!-- ===== Resultado: ambiente protegido ===== -->
+        <g class="escudo">
+          <path d="M206 64 L230 72 V90 C230 107 220 117 206 123 C192 117 182 107 182 90 V72 Z" fill="url(#marcaV)"/>
+          <path d="M206 70 L225 76.5 V90 C225 103 217 111 206 116.5 Z" fill="#fff" opacity=".15"/>
+          <path d="M195 93 l7.5 7.5 L218 84" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="158" y="128" width="96" height="14" rx="7" fill="#fff" stroke="#7cc242" stroke-width="1.5"/>
+          <text x="206" y="137.8" text-anchor="middle" font-family="Arial, sans-serif" font-size="6.6" font-weight="800" fill="#3f8a1a" letter-spacing=".3">AMBIENTE PROTEGIDO</text>
+        </g>
+        <g>
+          <path class="brilho" d="M172 76 l2 5 l5 2 l-5 2 l-2 5 l-2 -5 l-5 -2 l5 -2z" fill="#38bdf8"/>
+          <path class="brilho" d="M242 70 l1.6 4 l4 1.6 l-4 1.6 l-1.6 4 l-1.6 -4 l-4 -1.6 l4 -1.6z" fill="#7cc242"/>
+          <path class="brilho" d="M250 108 l2 5 l5 2 l-5 2 l-2 5 l-2 -5 l-5 -2 l5 -2z" fill="#0070d6"/>
+          <path class="brilho" d="M286 228 l1.6 4 l4 1.6 l-4 1.6 l-1.6 4 l-1.6 -4 l-4 -1.6 l4 -1.6z" fill="#38bdf8"/>
+        </g>
+
+        <!-- Certificado de execução -->
+        <g class="certificado">
+          <g transform="rotate(-4 206 96)">
+            <rect x="180" y="62" width="52" height="68" rx="3" fill="#fff" stroke="#cbd5e1" stroke-width="1.2"/>
+            <rect x="180" y="62" width="52" height="12" rx="3" fill="#0070d6"/>
+            <rect x="180" y="70" width="52" height="4" fill="#0070d6"/>
+            <text x="206" y="70.6" text-anchor="middle" font-family="Arial, sans-serif" font-size="6" font-weight="800" fill="#fff" letter-spacing=".4">CERTIFICADO</text>
+            <use href="#v" transform="translate(194 86) scale(.8)"/>
+            <path d="M204 82 h20 M204 88 h16 M187 98 h38 M187 104 h38 M187 110 h24" stroke="#cbd5e1" stroke-width="2" stroke-linecap="round"/>
+            <g class="carimbo">
+              <circle cx="220" cy="118" r="9" fill="#ffffffcc" stroke="#58a52b" stroke-width="2"/>
+              <path d="M215.5 118 l3 3 l6 -6" fill="none" stroke="#58a52b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </g>
+          </g>
+        </g>
+
+        <!-- Placa de isolamento da área -->
+        <g class="placa">
+          <path d="M40 182 L30 222 M60 182 L70 222" stroke="#64748b" stroke-width="2.5" stroke-linecap="round"/>
+          <rect x="26" y="176" width="48" height="32" rx="3" fill="#fff" stroke="#0070d6" stroke-width="1.5"/>
+          <rect x="27" y="177" width="46" height="7" fill="url(#zebrado)"/>
+          <text x="50" y="194" text-anchor="middle" font-family="Arial, sans-serif" font-size="6" font-weight="800" fill="#005bb0">ÁREA EM</text>
+          <text x="50" y="202.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="6" font-weight="800" fill="#005bb0">TRATAMENTO</text>
+        </g>
+
+        <!-- ===== Técnico com EPI e pulverizador costal ===== -->
+        <g class="tecnico">
+          <!-- Pernas (pivô no quadril) -->
+          <g transform="translate(105 176)">
+            <g class="perna-a local">
+              <rect x="-5" y="0" width="10" height="40" rx="3" fill="#005bb0"/>
+              <path d="M-6 38 h10 q6 0 6 6 v2 h-16 z" fill="#0f172a"/>
+            </g>
+          </g>
+          <g transform="translate(119 176)">
+            <g class="perna-b local">
+              <rect x="-5" y="0" width="10" height="40" rx="3" fill="#0070d6"/>
+              <path d="M-6 38 h10 q6 0 6 6 v2 h-16 z" fill="#1e293b"/>
+            </g>
+          </g>
+
+          <g class="corpo">
+            <!-- Mangueira: tanque → lança -->
+            <path d="M86 176 C 84 206, 132 204, 144 165" fill="none" stroke="#1e293b" stroke-width="2.4" stroke-linecap="round"/>
+
+            <!-- Pulverizador costal -->
+            <path d="M80 172 l-9 -6 v-24" fill="none" stroke="#475569" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <rect x="76" y="124" width="26" height="54" rx="9" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5"/>
+            <ellipse cx="89" cy="125" rx="7" ry="3" fill="#0070d6"/>
+            <rect x="80" y="136" width="5" height="32" rx="2.5" fill="#e2e8f0" stroke="#cbd5e1" stroke-width=".8"/>
+            <rect class="nivel" x="80.8" y="140" width="3.4" height="27.2" rx="1.7" fill="#38bdf8"/>
+            <use href="#v" transform="translate(93 150) scale(.7)"/>
+
+            <!-- Tronco (macacão) -->
+            <rect x="96" y="124" width="34" height="58" rx="9" fill="#0070d6"/>
+            <rect x="96" y="160" width="34" height="5" fill="#e0f2fe" opacity=".9"/>
+            <rect x="96" y="174" width="34" height="4" fill="#005bb0"/>
+            <rect x="116" y="134" width="9" height="8" rx="1.5" fill="#005bb0"/>
+            <path d="M98 128 L104 126 L104 176" stroke="#1e293b" stroke-width="3" fill="none"/>
+
+            <!-- Cabeça com capuz, óculos e respirador -->
+            <circle cx="113" cy="111" r="14" fill="#005bb0"/>
+            <ellipse cx="118" cy="112" rx="9.5" ry="10.5" fill="#f2c6a0"/>
+            <path d="M101 107 L114 105" stroke="#0f172a" stroke-width="2"/>
+            <rect x="113" y="103.5" width="14" height="7.5" rx="3.5" fill="#bae6fd" stroke="#0f172a" stroke-width="1.6"/>
+            <path d="M116 106 l4 0" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/>
+            <path d="M115 114 h9 a5 5 0 0 1 5 5 v1 a5 5 0 0 1 -5 5 h-5 a4 4 0 0 1 -4 -4 z" fill="#475569"/>
+            <circle cx="128" cy="121" r="4" fill="#94a3b8" stroke="#334155" stroke-width="1.2"/>
+            <circle cx="128" cy="121" r="1.4" fill="#334155"/>
+
+            <!-- Braço até a mão -->
+            <path d="M116 136 L129 156 L146 160" fill="none" stroke="#0070d6" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+
+            <!-- Lança (gira em torno da mão) com o jato de névoa -->
+            <g transform="translate(147 160)">
+              <g class="lanca local">
+                <path d="M-6 -2 L52 15" stroke="#475569" stroke-width="3.2" stroke-linecap="round"/>
+                <path d="M2 1 l2 8" stroke="#334155" stroke-width="3" stroke-linecap="round"/>
+                <rect x="49" y="12" width="7" height="5" rx="1.5" fill="#0f172a" transform="rotate(16 52 15)"/>
+                <g class="jato">
+                  <circle class="gota g1" cx="57" cy="17" r="2.6" fill="#7dd3fc"/>
+                  <circle class="gota g2" cx="57" cy="17" r="2.6" fill="#bae6fd"/>
+                  <circle class="gota g3" cx="57" cy="17" r="2.6" fill="#7dd3fc"/>
+                  <circle class="gota g4" cx="57" cy="17" r="2.6" fill="#e0f2fe"/>
+                  <circle class="gota g5" cx="57" cy="17" r="2.6" fill="#38bdf8"/>
+                  <circle class="gota g6" cx="57" cy="17" r="2.6" fill="#bae6fd"/>
+                  <circle class="gota g7" cx="57" cy="17" r="2.6" fill="#7dd3fc"/>
+                  <circle class="gota g8" cx="57" cy="17" r="2.6" fill="#38bdf8"/>
+                </g>
+              </g>
+            </g>
+            <circle cx="147" cy="160" r="5" fill="#1e293b"/>
+          </g>
+        </g>
+      </svg>
+    </div>
+    </div>
+
+    <main>
+      <div class="selo" role="status">Manutenção em andamento</div>
+      <h1>O <span>Vetorize</span> está em dedetização</h1>
+      <p class="descricao">Nossa equipe está fazendo uma aplicação para deixar o sistema livre de bugs (literalmente!). Ele está temporariamente indisponível, mas seus dados estão seguros. Voltaremos em breve!</p>
+
+      <section class="tarefas" aria-label="Etapas da manutenção">
+        <ul>
+          <li class="t1">
+            <span class="ico" aria-hidden="true"><span class="pend"></span><span class="exec"></span><span class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span></span>
+            <span class="rot">Isolando a área</span>
+          </li>
+          <li class="t2">
+            <span class="ico" aria-hidden="true"><span class="pend"></span><span class="exec"></span><span class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span></span>
+            <span class="rot">Aplicando o produto</span>
+          </li>
+          <li class="t3">
+            <span class="ico" aria-hidden="true"><span class="pend"></span><span class="exec"></span><span class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span></span>
+            <span class="rot">Eliminando as pragas</span>
+          </li>
+          <li class="t4">
+            <span class="ico" aria-hidden="true"><span class="pend"></span><span class="exec"></span><span class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span></span>
+            <span class="rot">Emitindo o certificado</span>
+          </li>
+        </ul>
+
+        <div class="area" aria-hidden="true">
+          <div class="area-topo">
+            <strong>Área tratada</strong>
+            <span class="pct"></span>
+          </div>
+          <div class="trilho"><div class="enchimento"></div></div>
+          <div class="marcos">
+            <span class="m1">Cômodos</span>
+            <span class="m2">Ralos</span>
+            <span class="m3">Perímetro</span>
+          </div>
+        </div>
+      </section>
+
+      <div class="acoes">
+        <a href="" class="tentar" aria-label="Tentar acessar o Vetorize novamente">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v5h-5"/></svg>
+          Tentar novamente
+        </a>
+      </div>
+      <p class="nota">Esta página tenta reconectar automaticamente a cada 60 segundos.</p>
+    </main>
+
+    <footer><strong>Vetorize</strong> &bull; Gestão para dedetização e higienização</footer>
+  </div>
+</body>
+</html>
